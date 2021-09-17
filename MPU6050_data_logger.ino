@@ -6,7 +6,6 @@
 #include <MPU6050.h>
 #include <SPI.h>
 #include <SD.h>
-#include <DueTimer.h>
 
 #define LED           9
 #define CHIP_SELECT   4
