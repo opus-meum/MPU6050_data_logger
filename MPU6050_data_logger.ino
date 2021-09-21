@@ -2,12 +2,12 @@
     MPU6050 6 Axis IMU data logger. Modified from:
 */
 
-#include <Wire.h>
-#include <MPU6050.h>
+#include "Wire.h"
+#include <Adafruit_MPU6050.h>
+
 #include <SPI.h>
 #include <SD.h>
 #include <DueTimer.h>
-#include <DueFlashStorage.h>
 
 //Defines so the device can do a self reset
 #define SYSRESETREQ    (1<<2)
@@ -22,21 +22,24 @@
 #define USE_SD_CARD
 
 File data_log;
-MPU6050 mpu;
-DueFlashStorage dueFlashStorage;
+Adafruit_MPU6050 mpu;
+
+//DueFlashStorage dueFlashStorage;
 
 volatile uint32_t counter = 0;
 volatile uint32_t resetCounter = 0;
 const uint32_t limit = 12 * 60 * 60 * 100;
 
+sensors_event_t a, g, temp;
+
 bool LED_on = false;
 
-struct dataFrame
+/*struct dataFrame
 {
   IntVector gyro;
   IntVector accel;
   float temperature;
-} rawData;
+} rawData;*/
 
 void flash_error_LED(void)
 {
@@ -58,17 +61,18 @@ void flash_error_LED(void)
 
 void initMPU(void)
 {
-  // Initialize MPU6050
-  Serial1.println("Initialize MPU6050");
-  while(!mpu.begin(MPU6050_SCALE_250DPS, MPU6050_RANGE_2G))
-  {
-    Serial1.println("Could not find a valid MPU6050 sensor, check wiring!");
-    flash_error_LED();
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
   }
+  Serial.println("MPU6050 Found!");
 
-  mpu.writeRegister8(MPU6050_REG_SMPRT_DIV, MPU6050_SMPLRT_100_NF);
-  mpu.writeRegister8(MPU6050_REG_INT_ENABLE, 1); 
+  mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
 }
+
 
 void setup() 
 {
@@ -200,37 +204,36 @@ void timerHandler(void)
 
 void timerHandler(void)
 {
-  //if ((mpu.readRegister8(MPU6050_REG_INT_STATUS) | MPU6050_DATA_READY_INT) == MPU6050_DATA_READY_INT)
-  //{
+  /*if ((mpu.readRegister8(MPU6050_REG_INT_STATUS) | MPU6050_DATA_READY_INT) == MPU6050_DATA_READY_INT)
+  {
     rawData.gyro = mpu.readRawGyro();
     rawData.accel = mpu.readRawAccel();
-    rawData.temperature = mpu.readTemperature();
+    rawData.temperature = mpu.readTemperature();*/
+
+   mpu.readRAW();
   
   #ifdef USE_SD_CARD
-    data_log.print(rawData.gyro.XAxis);   
+    data_log.print(mpu.rawAccX); 
     data_log.print(","); 
-    data_log.print(rawData.gyro.YAxis);   
+    data_log.print(mpu.rawAccY);   
     data_log.print(","); 
-    data_log.print(rawData.gyro.ZAxis);   
+    data_log.print(mpu.rawAccZ);   
     data_log.print(","); 
-    data_log.print(rawData.accel.XAxis);   
+    data_log.print(mpu.rawGyroX);   
     data_log.print(","); 
-    data_log.print(rawData.accel.YAxis);   
+    data_log.print(mpu.rawGyroY);   
     data_log.print(","); 
-    data_log.print(rawData.accel.ZAxis);   
+    data_log.print(mpu.rawGyroZ);   
     data_log.print(","); 
-    data_log.print(rawData.temperature);
+    data_log.print(mpu.temperature);
     data_log.print(","); 
     data_log.println(counter);
   
     if (!(counter % 36))
-    {
       data_log.flush();
-    }
     else if (!(counter % 100))
-    {
       Serial1.println(counter);
-    }
+
   #else
     Serial1.print(rawData.gyro.XAxis);   
     Serial1.print(","); 
@@ -259,5 +262,4 @@ void timerHandler(void)
       digitalWrite(LED, LOW);
     }
     counter++;
-  //}
 }
